@@ -5,6 +5,8 @@ import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import io.nexstudios.framework.paper.services.commands.source.DefaultNexPaperCommandSource;
+import io.nexstudios.framework.paper.services.commands.source.NexPaperCommandSource;
 import io.nexstudios.framework.paper.services.commands.annotations.Arg;
 import io.nexstudios.framework.core.util.DurationParsing;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -45,6 +47,11 @@ final class CommandInvoker {
 
       if (t.equals(CommandSourceStack.class)) {
         out[i] = ctx.getSource();
+        continue;
+      }
+
+      if (t.equals(NexPaperCommandSource.class)) {
+        out[i] = new DefaultNexPaperCommandSource(ctx.getSource());
         continue;
       }
 

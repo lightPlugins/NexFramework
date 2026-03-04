@@ -22,6 +22,15 @@ public final class DefaultResourceService implements ResourceService {
   }
 
   @Override
+  public ClassLoader classLoader() {
+    ClassLoader localClassLoader = classLoader;
+    if (localClassLoader == null) {
+      throw new IllegalStateException("ResourceService is not bound. The platform must call bind(ClassLoader) first.");
+    }
+    return localClassLoader;
+  }
+
+  @Override
   public void bind(ClassLoader classLoader) {
     this.classLoader = Objects.requireNonNull(classLoader, "classLoader");
   }

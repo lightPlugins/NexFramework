@@ -5,6 +5,7 @@ plugins {
 dependencies {
     implementation(project(":framework-core"))
     implementation(project(":framework-config"))
+    implementation(project(":framework-data"))
 
     compileOnly("com.velocitypowered:velocity-api:${providers.gradleProperty("velocityVersion").get()}")
     annotationProcessor("com.velocitypowered:velocity-api:${providers.gradleProperty("velocityVersion").get()}")

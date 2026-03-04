@@ -6,6 +6,7 @@ plugins {
 dependencies {
     implementation(project(":framework-core"))
     implementation(project(":framework-config"))
+    implementation(project(":framework-data"))
 
     paperweight.paperDevBundle(providers.gradleProperty("paperVersion").get())
 }

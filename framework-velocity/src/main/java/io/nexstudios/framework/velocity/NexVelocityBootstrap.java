@@ -1,14 +1,20 @@
 package io.nexstudios.framework.velocity;
 
+import io.nexstudios.framework.config.service.language.DefaultLanguageService;
 import io.nexstudios.framework.config.service.singlereader.DefaultFileReaderService;
 import io.nexstudios.framework.config.service.multireader.DefaultMultiFileReaderService;
 import io.nexstudios.framework.config.service.singlereader.FileReaderService;
 import io.nexstudios.framework.config.service.multireader.MultiFileReaderService;
-import io.nexstudios.framework.core.*;
+import io.nexstudios.framework.core.NexFramework;
+import io.nexstudios.framework.core.service.database.DatabaseAsyncService;
+import io.nexstudios.framework.core.service.database.DatabaseService;
 import io.nexstudios.framework.core.service.folder.DataFolderService;
 import io.nexstudios.framework.core.service.folder.DefaultDataFolderService;
+import io.nexstudios.framework.core.service.language.LanguageService;
 import io.nexstudios.framework.core.service.resource.DefaultResourceService;
 import io.nexstudios.framework.core.service.resource.ResourceService;
+import io.nexstudios.framework.data.service.DefaultDatabaseAsyncService;
+import io.nexstudios.framework.data.service.DefaultDatabaseService;
 import io.nexstudios.serviceregistry.di.ServiceAccessor;
 
 import java.nio.file.Path;
@@ -24,11 +30,9 @@ public abstract class NexVelocityBootstrap {
 
     @Override
     protected void configureServices(ServiceAccessor services) {
+      // Bind-first: register + bind platform-bound services before any dependent services are registered/instantiated
       services.register(DataFolderService.class, DefaultDataFolderService.class);
       services.register(ResourceService.class, DefaultResourceService.class);
-
-      services.register(FileReaderService.class, DefaultFileReaderService.class);
-      services.register(MultiFileReaderService.class, DefaultMultiFileReaderService.class);
 
       DataFolderService dataFolderService = services.getService(DataFolderService.class);
       dataFolderService.bind(Objects.requireNonNull(NexVelocityBootstrap.this.dataFolder(), "dataFolder() must not be null"));
@@ -36,17 +40,43 @@ public abstract class NexVelocityBootstrap {
       ResourceService resourceService = services.getService(ResourceService.class);
       resourceService.bind(Objects.requireNonNull(NexVelocityBootstrap.this.classLoader(), "classLoader() must not be null"));
 
+      // Now it is safe to register services that depend on ResourceService/DataFolderService
+      services.register(FileReaderService.class, DefaultFileReaderService.class);
+      services.register(MultiFileReaderService.class, DefaultMultiFileReaderService.class);
+      services.register(LanguageService.class, DefaultLanguageService.class);
+      services.register(DatabaseService.class, DefaultDatabaseService.class);
+      services.register(DatabaseAsyncService.class, DefaultDatabaseAsyncService.class);
+
       NexVelocityBootstrap.this.configureServices(services);
     }
 
     @Override
     protected void start() {
+      DatabaseService databaseService = NexVelocityBootstrap.this.services().getService(DatabaseService.class);
+      databaseService.start();
+
+      DatabaseAsyncService databaseAsyncService = NexVelocityBootstrap.this.services().getService(DatabaseAsyncService.class);
+      databaseAsyncService.start();
+
       NexVelocityBootstrap.this.start();
     }
 
     @Override
     protected void stop() {
-      NexVelocityBootstrap.this.stop();
+      try {
+        DatabaseAsyncService databaseAsyncService = NexVelocityBootstrap.this.services().getService(DatabaseAsyncService.class);
+        databaseAsyncService.shutdown();
+
+        // Plugin stop hook runs while DB is still available (important for final saves)
+        NexVelocityBootstrap.this.stop();
+      } finally {
+        try {
+          DatabaseService databaseService = NexVelocityBootstrap.this.services().getService(DatabaseService.class);
+          databaseService.shutdown();
+        } catch (Exception exception) {
+          exception.printStackTrace();
+        }
+      }
     }
   };
 

@@ -1,14 +1,20 @@
 package io.nexstudios.framework.paper;
 
+import io.nexstudios.framework.config.service.language.DefaultLanguageService;
 import io.nexstudios.framework.config.service.singlereader.DefaultFileReaderService;
 import io.nexstudios.framework.config.service.multireader.DefaultMultiFileReaderService;
 import io.nexstudios.framework.config.service.singlereader.FileReaderService;
 import io.nexstudios.framework.config.service.multireader.MultiFileReaderService;
 import io.nexstudios.framework.core.NexFramework;
+import io.nexstudios.framework.core.service.database.DatabaseAsyncService;
+import io.nexstudios.framework.core.service.database.DatabaseService;
 import io.nexstudios.framework.core.service.folder.DataFolderService;
 import io.nexstudios.framework.core.service.folder.DefaultDataFolderService;
+import io.nexstudios.framework.core.service.language.LanguageService;
 import io.nexstudios.framework.core.service.resource.DefaultResourceService;
 import io.nexstudios.framework.core.service.resource.ResourceService;
+import io.nexstudios.framework.data.service.DefaultDatabaseAsyncService;
+import io.nexstudios.framework.data.service.DefaultDatabaseService;
 import io.nexstudios.framework.paper.services.ServiceListener;
 import io.nexstudios.framework.paper.services.commands.CommandService;
 import io.nexstudios.framework.paper.services.commands.DefaultCommandService;
@@ -38,7 +44,10 @@ public abstract class NexPaperPlugin extends JavaPlugin {
 
     @Override
     protected void configureServices(ServiceAccessor services) {
-      NexPaperPlugin.this.registerPaperInternalServices(services);
+      // Bind-first: register + bind platform-bound services before any dependent services are registered/instantiated
+      services.register(PaperPluginService.class, DefaultPaperPluginService.class);
+      services.register(DataFolderService.class, DefaultDataFolderService.class);
+      services.register(ResourceService.class, DefaultResourceService.class);
 
       DefaultPaperPluginService pluginService = (DefaultPaperPluginService) services.getService(PaperPluginService.class);
       pluginService.bind(NexPaperPlugin.this);
@@ -49,6 +58,8 @@ public abstract class NexPaperPlugin extends JavaPlugin {
       ResourceService resourceService = services.getService(ResourceService.class);
       resourceService.bind(NexPaperPlugin.this.getClassLoader());
 
+      // Now it is safe to register services that depend on ResourceService/DataFolderService
+      NexPaperPlugin.this.registerPaperInternalServices(services);
       NexPaperPlugin.this.configureServices(services);
     }
 
@@ -59,17 +70,28 @@ public abstract class NexPaperPlugin extends JavaPlugin {
 
     @Override
     protected void stop() {
-      NexPaperPlugin.this.stop();
+      try {
+        DatabaseAsyncService databaseAsyncService = NexPaperPlugin.this.services().getService(DatabaseAsyncService.class);
+        databaseAsyncService.shutdown();
+
+        // Plugin stop hook runs while DB is still available (important for final saves)
+        NexPaperPlugin.this.stop();
+      } finally {
+        try {
+          DatabaseService databaseService = NexPaperPlugin.this.services().getService(DatabaseService.class);
+          databaseService.shutdown();
+        } catch (Exception ignored) { }
+      }
     }
   };
 
   protected void registerPaperInternalServices(ServiceAccessor services) {
     services.register(CommandService.class, DefaultCommandService.class);
-    services.register(DataFolderService.class, DefaultDataFolderService.class);
-    services.register(ResourceService.class, DefaultResourceService.class);
     services.register(FileReaderService.class, DefaultFileReaderService.class);
     services.register(MultiFileReaderService.class, DefaultMultiFileReaderService.class);
-    services.register(PaperPluginService.class, DefaultPaperPluginService.class);
+    services.register(LanguageService.class, DefaultLanguageService.class);
+    services.register(DatabaseService.class, DefaultDatabaseService.class);
+    services.register(DatabaseAsyncService.class, DefaultDatabaseAsyncService.class);
   }
 
   protected void configureServices(ServiceAccessor services) { }
@@ -199,6 +221,13 @@ public abstract class NexPaperPlugin extends JavaPlugin {
     }
 
     pendingCommandHandlers.clear();
+
+    DatabaseService databaseService = services().getService(DatabaseService.class);
+    databaseService.start();
+
+    DatabaseAsyncService databaseAsyncService = services().getService(DatabaseAsyncService.class);
+    databaseAsyncService.start();
+
     start();
   }
 }

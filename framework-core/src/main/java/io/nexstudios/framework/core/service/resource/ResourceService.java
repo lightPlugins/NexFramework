@@ -21,6 +21,14 @@ public interface ResourceService extends Service {
   Optional<InputStream> openResource(String resourcePath);
 
   /**
+   * Exposes the bound class loader.
+   *
+   * @return bound class loader
+   * @throws IllegalStateException if not bound
+   */
+  ClassLoader classLoader();
+
+  /**
    * Binds the class loader that should be used to resolve resources.
    *
    * @param classLoader class loader to use
