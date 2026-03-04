@@ -1,17 +1,14 @@
 package io.nexstudios.framework.paper.services.commands.factory;
 
 import io.nexstudios.framework.core.NexFramework;
-import io.nexstudios.framework.paper.services.commands.annotations.Command;
-import io.nexstudios.framework.paper.services.commands.annotations.CommandRoot;
-import io.nexstudios.framework.paper.services.commands.annotations.Greedy;
-import io.nexstudios.framework.paper.services.commands.annotations.Suggest;
+import io.nexstudios.framework.paper.services.commands.annotations.*;
 import io.nexstudios.framework.paper.services.commands.factory.args.ArgParsing;
 import io.nexstudios.framework.paper.services.commands.factory.model.ArgSpec;
 import io.nexstudios.framework.paper.services.commands.factory.model.CmdNode;
 import io.nexstudios.framework.paper.services.commands.factory.model.Exec;
+import io.nexstudios.framework.paper.services.commands.factory.suggest.OnlinePlayersSuggestion;
 import io.nexstudios.framework.paper.services.commands.factory.suggest.SuggestionProvider;
 import io.nexstudios.framework.paper.services.commands.factory.util.CommandUtils;
-import io.nexstudios.serviceregistry.di.ServiceAccessor;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -73,6 +70,10 @@ public final class CommandModelBuilder {
 
     Suggest suggest = param.getAnnotation(Suggest.class);
     Class<? extends SuggestionProvider> suggestClass = (suggest == null) ? null : suggest.value();
+
+    if (suggestClass == null && param.isAnnotationPresent(SuggestPlayers.class)) {
+      suggestClass = OnlinePlayersSuggestion.class;
+    }
 
     return new ArgSpec(type, greedy, suggestClass);
   }

@@ -1,5 +1,6 @@
 package io.nexstudios.framework.paper.services.commands.factory.args;
 
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -10,6 +11,10 @@ import io.nexstudios.framework.paper.services.commands.factory.model.ArgSpec;
 import io.nexstudios.framework.paper.services.commands.factory.model.CmdNode;
 import io.nexstudios.framework.paper.services.commands.factory.suggest.SuggestionProvider;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import org.bukkit.entity.Player;
+
+import java.time.Duration;
+import java.util.Locale;
 
 import static io.papermc.paper.command.brigadier.Commands.argument;
 
@@ -37,8 +42,53 @@ public final class ArgTypeSupport {
       return a;
     }
 
+    if (spec.type == boolean.class || spec.type == Boolean.class) {
+      RequiredArgumentBuilder<CommandSourceStack, Boolean> a = argument(node.name, BoolArgumentType.bool());
+      if (provider != null) a = a.suggests(provider::suggest);
+      return a;
+    }
+
     if (spec.type == double.class || spec.type == Double.class) {
       RequiredArgumentBuilder<CommandSourceStack, Double> a = argument(node.name, DoubleArgumentType.doubleArg());
+      if (provider != null) a = a.suggests(provider::suggest);
+      return a;
+    }
+
+    if (spec.type == Player.class) {
+      RequiredArgumentBuilder<CommandSourceStack, String> a = argument(node.name, StringArgumentType.word());
+      if (provider != null) a = a.suggests(provider::suggest);
+      return a;
+    }
+
+    if (spec.type.isEnum()) {
+      @SuppressWarnings("unchecked")
+      Class<? extends Enum<?>> enumType = (Class<? extends Enum<?>>) spec.type;
+
+      RequiredArgumentBuilder<CommandSourceStack, String> a = argument(node.name, StringArgumentType.word());
+
+      if (provider != null) {
+        a = a.suggests(provider::suggest);
+      } else {
+        a = a.suggests((ctx, builder) -> {
+          String remaining = builder.getRemainingLowerCase();
+          for (Enum<?> c : enumType.getEnumConstants()) {
+            String s = c.name().toLowerCase(Locale.ROOT);
+            if (remaining.isEmpty() || s.startsWith(remaining)) {
+              builder.suggest(s);
+            }
+          }
+          return builder.buildFuture();
+        });
+      }
+
+      return a;
+    }
+
+    if (spec.type == Duration.class) {
+      RequiredArgumentBuilder<CommandSourceStack, String> a = argument(
+          node.name,
+          spec.greedy ? StringArgumentType.greedyString() : StringArgumentType.word()
+      );
       if (provider != null) a = a.suggests(provider::suggest);
       return a;
     }

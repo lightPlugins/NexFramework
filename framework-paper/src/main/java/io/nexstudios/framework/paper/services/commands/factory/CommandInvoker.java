@@ -1,14 +1,20 @@
 package io.nexstudios.framework.paper.services.commands.factory;
 
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import io.nexstudios.framework.paper.services.commands.annotations.Arg;
+import io.nexstudios.framework.core.util.DurationParsing;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.time.Duration;
+import java.util.Locale;
 
 final class CommandInvoker {
 
@@ -60,10 +66,57 @@ final class CommandInvoker {
         out[i] = DoubleArgumentType.getDouble(ctx, name);
         continue;
       }
+      if (t.equals(boolean.class) || t.equals(Boolean.class)) {
+        out[i] = BoolArgumentType.getBool(ctx, name);
+        continue;
+      }
+
+      if (t.equals(Player.class)) {
+        String playerName = StringArgumentType.getString(ctx, name);
+        Player player = Bukkit.getPlayerExact(playerName);
+        if (player == null) {
+          throw new IllegalStateException("Player not found: " + playerName);
+        }
+        out[i] = player;
+        continue;
+      }
+
+      if (t.isEnum()) {
+        String raw = StringArgumentType.getString(ctx, name);
+        out[i] = parseEnumOrThrow(t, name, raw);
+        continue;
+      }
+
+      if (t.equals(Duration.class)) {
+        String raw = StringArgumentType.getString(ctx, name);
+        out[i] = DurationParsing.parse(raw);
+        continue;
+      }
 
       throw new IllegalStateException("Unsupported @Arg parameter type in " + method + ": " + t.getName());
     }
 
     return out;
+  }
+
+  private static Enum<?> parseEnumOrThrow(Class<?> enumType, String argName, String raw) {
+    String normalized = raw.trim();
+    if (normalized.isEmpty()) {
+      throw new IllegalStateException("Invalid empty value for " + argName + ": " + raw);
+    }
+
+    String upper = normalized.toUpperCase(Locale.ROOT);
+
+    try {
+      return enumValueOfUnchecked(enumType, upper);
+    } catch (IllegalArgumentException ex) {
+      throw new IllegalStateException("Invalid value for " + argName + ": " + raw);
+    }
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private static Enum<?> enumValueOfUnchecked(Class<?> enumType, String name) {
+    Class<? extends Enum> c = enumType.asSubclass(Enum.class);
+    return Enum.valueOf(c, name);
   }
 }

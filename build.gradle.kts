@@ -31,6 +31,16 @@ subprojects {
         withJavadocJar()
     }
 
+    dependencies {
+        val lombokVersion = providers.gradleProperty("lombokVersion").get()
+
+        add("compileOnly", "org.projectlombok:lombok:$lombokVersion")
+        add("annotationProcessor", "org.projectlombok:lombok:$lombokVersion")
+
+        add("testCompileOnly", "org.projectlombok:lombok:$lombokVersion")
+        add("testAnnotationProcessor", "org.projectlombok:lombok:$lombokVersion")
+    }
+
     tasks.withType(Test::class.java).configureEach {
         useJUnitPlatform()
     }
