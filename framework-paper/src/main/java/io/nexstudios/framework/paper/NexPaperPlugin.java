@@ -1,9 +1,19 @@
 package io.nexstudios.framework.paper;
 
+import io.nexstudios.framework.config.service.singlereader.DefaultFileReaderService;
+import io.nexstudios.framework.config.service.multireader.DefaultMultiFileReaderService;
+import io.nexstudios.framework.config.service.singlereader.FileReaderService;
+import io.nexstudios.framework.config.service.multireader.MultiFileReaderService;
 import io.nexstudios.framework.core.NexFramework;
+import io.nexstudios.framework.core.service.folder.DataFolderService;
+import io.nexstudios.framework.core.service.folder.DefaultDataFolderService;
+import io.nexstudios.framework.core.service.resource.DefaultResourceService;
+import io.nexstudios.framework.core.service.resource.ResourceService;
 import io.nexstudios.framework.paper.services.ServiceListener;
 import io.nexstudios.framework.paper.services.commands.CommandService;
 import io.nexstudios.framework.paper.services.commands.DefaultCommandService;
+import io.nexstudios.framework.paper.services.plugin.DefaultPaperPluginService;
+import io.nexstudios.framework.paper.services.plugin.PaperPluginService;
 import io.nexstudios.serviceregistry.di.Service;
 import io.nexstudios.serviceregistry.di.ServiceAccessor;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
@@ -29,6 +39,16 @@ public abstract class NexPaperPlugin extends JavaPlugin {
     @Override
     protected void configureServices(ServiceAccessor services) {
       NexPaperPlugin.this.registerPaperInternalServices(services);
+
+      DefaultPaperPluginService pluginService = (DefaultPaperPluginService) services.getService(PaperPluginService.class);
+      pluginService.bind(NexPaperPlugin.this);
+
+      DataFolderService dataFolderService = services.getService(DataFolderService.class);
+      dataFolderService.bind(NexPaperPlugin.this.getDataFolder().toPath());
+
+      ResourceService resourceService = services.getService(ResourceService.class);
+      resourceService.bind(NexPaperPlugin.this.getClassLoader());
+
       NexPaperPlugin.this.configureServices(services);
     }
 
@@ -45,6 +65,11 @@ public abstract class NexPaperPlugin extends JavaPlugin {
 
   protected void registerPaperInternalServices(ServiceAccessor services) {
     services.register(CommandService.class, DefaultCommandService.class);
+    services.register(DataFolderService.class, DefaultDataFolderService.class);
+    services.register(ResourceService.class, DefaultResourceService.class);
+    services.register(FileReaderService.class, DefaultFileReaderService.class);
+    services.register(MultiFileReaderService.class, DefaultMultiFileReaderService.class);
+    services.register(PaperPluginService.class, DefaultPaperPluginService.class);
   }
 
   protected void configureServices(ServiceAccessor services) { }
@@ -146,35 +171,34 @@ public abstract class NexPaperPlugin extends JavaPlugin {
   private void startInternal() {
     var pm = getServer().getPluginManager();
 
-    // first register listeners
     for (var type : listeners()) {
       Listener listener = services().create(type);
       pm.registerEvents(listener, this);
     }
+
     for (var type : pendingListenerTypes) {
       Listener listener = services().create(type);
       pm.registerEvents(listener, this);
     }
+
     pendingListenerTypes.clear();
 
     for (var listener : pendingListenerInstances) {
       pm.registerEvents(listener, this);
     }
-    pendingListenerInstances.clear();
 
-    // Register Commands after services
+    pendingListenerInstances.clear();
     CommandService commandService = services().getService(CommandService.class);
 
     for (var t : commands()) {
       commandService.register(t);
     }
+
     for (var t : pendingCommandHandlers) {
       commandService.register(t);
     }
-    pendingCommandHandlers.clear();
 
-    // Framework start
+    pendingCommandHandlers.clear();
     start();
   }
-
 }

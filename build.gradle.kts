@@ -52,4 +52,22 @@ subprojects {
             }
         }
     }
+
+    pluginManager.withPlugin("com.gradleup.shadow") {
+        if (project.name == "framework-paper" || project.name == "framework-velocity") {
+
+            // 1) Für Endpoints: Gradle Module Metadata (.module) abschalten, weil wir Artefakte ersetzen
+            tasks.withType(GenerateModuleMetadata::class.java).configureEach {
+                enabled = false
+            }
+
+            // 2) ShadowJar als publiziertes Haupt-Artefakt verwenden
+            extensions.configure<PublishingExtension> {
+                publications.named("mavenJava", MavenPublication::class.java).configure {
+                    artifacts.clear()
+                    artifact(tasks.named("shadowJar"))
+                }
+            }
+        }
+    }
 }

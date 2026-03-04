@@ -9,6 +9,7 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/framework-config" />
             <option value="$PROJECT_DIR$/framework-core" />
             <option value="$PROJECT_DIR$/framework-paper" />
             <option value="$PROJECT_DIR$/framework-velocity" />
