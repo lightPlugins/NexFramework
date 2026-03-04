@@ -19,24 +19,18 @@ public abstract class NexFramework implements ServiceOwner {
     this.services = new ServiceAccessor(registry, this);
   }
 
-  protected void configureServices(ServiceAccessor services) {
-    // default no-op
-  }
-
-  protected void start() {
-    // default no-op
-  }
-
-  protected void stop() {
-    // default no-op
-  }
+  protected void registerInternalServices(ServiceAccessor services) { }
+  protected void configureServices(ServiceAccessor services) { }
+  protected void start() { }
+  protected void stop() { }
 
   public final synchronized void boot() {
     if (booted) {
-      throw new IllegalStateException("NexFramework '" + name() + "' ist bereits gebootet.");
+      throw new IllegalStateException("NexFramework " + name() + " is already booted!");
     }
-    Objects.requireNonNull(name(), "ServiceOwner.name() darf nicht null sein");
+    Objects.requireNonNull(name(), "ServiceOwner.name() must not be null!");
 
+    registerInternalServices(services);
     configureServices(services);
     booted = true;
     start();
