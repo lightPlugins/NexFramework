@@ -45,10 +45,9 @@ public final class PaperPlayerLocaleListener implements ServiceListener {
     // First, set the default locale immediately
     languageService.setUserLocale(uuid, defaultLocale);
 
-    // Now load language from DB asynchronously
+    // Now load language from DB asynchronously (single transaction, single EntityManager)
     databaseAsyncService.executeAsyncInTransaction(em -> {
-      userLocaleStore.ensureExists(uuid, defaultLocale);
-      return userLocaleStore.find(uuid).orElse(defaultLocale);
+      return userLocaleStore.findOrCreate(em, uuid, defaultLocale);
     }).thenAccept(loadedLocale -> {
       // back to main thread
       Bukkit.getScheduler().runTask(

@@ -5,6 +5,7 @@ import io.nexstudios.framework.core.service.language.UserLocaleStore;
 import io.nexstudios.framework.data.service.language.entity.PlayerLocaleEntity;
 import io.nexstudios.serviceregistry.di.Dependencies;
 import io.nexstudios.serviceregistry.di.ServiceAccessor;
+import jakarta.persistence.EntityManager;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -28,15 +29,8 @@ public final class HibernateUserLocaleStore implements UserLocaleStore {
     Objects.requireNonNull(userIdentifier, "userIdentifier");
     Objects.requireNonNull(defaultLocale, "defaultLocale");
 
-    String uuid = userIdentifier.toString();
-    String tag = defaultLocale.toLanguageTag();
-
     databaseService.executeInTransaction(em -> {
-      PlayerLocaleEntity existing = em.find(PlayerLocaleEntity.class, uuid);
-      if (existing != null) {
-        return null;
-      }
-      em.persist(new PlayerLocaleEntity(uuid, tag));
+      ensureExists(em, userIdentifier, defaultLocale);
       return null;
     });
   }
@@ -45,25 +39,8 @@ public final class HibernateUserLocaleStore implements UserLocaleStore {
   public Optional<Locale> find(UUID userIdentifier) {
     Objects.requireNonNull(userIdentifier, "userIdentifier");
 
-    String uuid = userIdentifier.toString();
-
     return databaseService.executeInTransaction(em -> {
-      PlayerLocaleEntity e = em.find(PlayerLocaleEntity.class, uuid);
-      if (e == null) {
-        return Optional.empty();
-      }
-
-      String tag = e.getLocaleTag();
-      if (tag == null || tag.isBlank()) {
-        return Optional.empty();
-      }
-
-      Locale locale = Locale.forLanguageTag(tag.trim());
-      if (locale.getLanguage().isBlank()) {
-        return Optional.empty();
-      }
-
-      return Optional.of(locale);
+      return find(em, userIdentifier);
     });
   }
 
@@ -72,17 +49,91 @@ public final class HibernateUserLocaleStore implements UserLocaleStore {
     Objects.requireNonNull(userIdentifier, "userIdentifier");
     Objects.requireNonNull(locale, "locale");
 
+    databaseService.executeInTransaction(em -> {
+      upsert(em, userIdentifier, locale);
+      return null;
+    });
+  }
+
+  @Override
+  public void ensureExists(EntityManager em, UUID userIdentifier, Locale defaultLocale) {
+    Objects.requireNonNull(em, "em");
+    Objects.requireNonNull(userIdentifier, "userIdentifier");
+    Objects.requireNonNull(defaultLocale, "defaultLocale");
+
+    String uuid = userIdentifier.toString();
+    String tag = defaultLocale.toLanguageTag();
+
+    PlayerLocaleEntity existing = em.find(PlayerLocaleEntity.class, uuid);
+    if (existing != null) {
+      return;
+    }
+    em.persist(new PlayerLocaleEntity(uuid, tag));
+  }
+
+  @Override
+  public Optional<Locale> find(EntityManager em, UUID userIdentifier) {
+    Objects.requireNonNull(em, "em");
+    Objects.requireNonNull(userIdentifier, "userIdentifier");
+
+    String uuid = userIdentifier.toString();
+
+    PlayerLocaleEntity e = em.find(PlayerLocaleEntity.class, uuid);
+    if (e == null) {
+      return Optional.empty();
+    }
+
+    String tag = e.getLocaleTag();
+    if (tag == null || tag.isBlank()) {
+      return Optional.empty();
+    }
+
+    Locale locale = Locale.forLanguageTag(tag.trim());
+    if (locale.getLanguage().isBlank()) {
+      return Optional.empty();
+    }
+
+    return Optional.of(locale);
+  }
+
+  @Override
+  public void upsert(EntityManager em, UUID userIdentifier, Locale locale) {
+    Objects.requireNonNull(em, "em");
+    Objects.requireNonNull(userIdentifier, "userIdentifier");
+    Objects.requireNonNull(locale, "locale");
+
     String uuid = userIdentifier.toString();
     String tag = locale.toLanguageTag();
 
-    databaseService.executeInTransaction(em -> {
-      PlayerLocaleEntity e = em.find(PlayerLocaleEntity.class, uuid);
-      if (e == null) {
-        em.persist(new PlayerLocaleEntity(uuid, tag));
-        return null;
-      }
-      e.setLocaleTag(tag);
-      return null;
-    });
+    PlayerLocaleEntity e = em.find(PlayerLocaleEntity.class, uuid);
+    if (e == null) {
+      em.persist(new PlayerLocaleEntity(uuid, tag));
+      return;
+    }
+    e.setLocaleTag(tag);
+  }
+
+  @Override
+  public Locale findOrCreate(EntityManager em, UUID userIdentifier, Locale defaultLocale) {
+    Objects.requireNonNull(em, "em");
+    Objects.requireNonNull(userIdentifier, "userIdentifier");
+    Objects.requireNonNull(defaultLocale, "defaultLocale");
+
+    String uuid = userIdentifier.toString();
+
+    PlayerLocaleEntity e = em.find(PlayerLocaleEntity.class, uuid);
+    if (e == null) {
+      Locale def = defaultLocale;
+      em.persist(new PlayerLocaleEntity(uuid, def.toLanguageTag()));
+      return def;
+    }
+
+    String tag = e.getLocaleTag();
+    if (tag == null || tag.isBlank()) {
+      return defaultLocale;
+    }
+
+    Locale parsed = Locale.forLanguageTag(tag.trim());
+    return parsed.getLanguage().isBlank() ? defaultLocale : parsed;
   }
 }
