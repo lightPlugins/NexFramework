@@ -22,6 +22,8 @@ public interface LanguageService extends Service {
 
   Locale getUserLocale(UUID userIdentifier);
 
+  void clearUserLocale(UUID userIdentifier);
+
   Set<Locale> getAvailableLocales();
 
   void reload();

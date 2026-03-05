@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.nexstudios.framework.config.FileConfiguration;
 import io.nexstudios.framework.config.service.singlereader.FileReaderService;
 import io.nexstudios.framework.core.service.database.DatabaseService;
+import io.nexstudios.framework.core.service.database.HibernateEntityRegistryService;
 import io.nexstudios.framework.core.service.folder.DataFolderService;
 import io.nexstudios.framework.data.configuration.DatabaseConfiguration;
 import io.nexstudios.serviceregistry.di.Dependencies;
@@ -19,12 +20,17 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @Dependencies({
     FileReaderService.class,
-    DataFolderService.class
+    DataFolderService.class,
+    HibernateEntityRegistryService.class
 })
 public final class DefaultDatabaseService implements DatabaseService {
+
+  private static final Logger logger = Logger.getLogger(DefaultDatabaseService.class.getName());
 
   private static final Path DATABASE_CONFIGURATION_PATH = Path.of("database.yml");
   private static final String DATABASE_CONFIGURATION_RESOURCE = "database.yml";
@@ -39,11 +45,14 @@ public final class DefaultDatabaseService implements DatabaseService {
   private volatile DatabaseConfiguration databaseConfiguration;
   private volatile HikariDataSource hikariDataSource;
   private volatile EntityManagerFactory entityManagerFactory;
+  private volatile HibernateEntityRegistryService hibernateEntityRegistryService;
 
   public DefaultDatabaseService(ServiceAccessor serviceAccessor) {
     Objects.requireNonNull(serviceAccessor, "serviceAccessor");
     this.fileReaderService = serviceAccessor.getService(FileReaderService.class);
     this.dataFolderService = serviceAccessor.getService(DataFolderService.class);
+    this.hibernateEntityRegistryService = serviceAccessor.getService(HibernateEntityRegistryService.class);
+
   }
 
   @Override
@@ -339,7 +348,7 @@ public final class DefaultDatabaseService implements DatabaseService {
     }
   }
 
-  private static EntityManagerFactory createEntityManagerFactory(
+  private EntityManagerFactory createEntityManagerFactory(
       DatabaseConfiguration databaseConfiguration,
       HikariDataSource hikariDataSource
   ) {
@@ -348,7 +357,7 @@ public final class DefaultDatabaseService implements DatabaseService {
 
     Map<String, Object> hibernateProperties = new LinkedHashMap<>();
 
-    // Important: do NOT use hibernate.hikari.* (we manage Hikari ourselves)
+    // do NOT use hibernate.hikari.* (we manage Hikari ourselves)
     hibernateProperties.put(AvailableSettings.JAKARTA_JTA_DATASOURCE, hikariDataSource);
 
     // Performance/sanity defaults
@@ -368,12 +377,25 @@ public final class DefaultDatabaseService implements DatabaseService {
         .applySettings(hibernateProperties)
         .build();
 
+    ClassLoader pluginClassLoader = DefaultDatabaseService.class.getClassLoader();
+    ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+
     try {
-      // Note: This does NOT auto-register annotated entities.
-      // You can either:
-      // - rely on integrators / your own bootstrap layer later
-      // - or extend this service with explicit entity registration
+      Thread.currentThread().setContextClassLoader(pluginClassLoader);
+
       MetadataSources metadataSources = new MetadataSources(serviceRegistry);
+
+      for (Class<?> entityClass : hibernateEntityRegistryService.entities()) {
+        try {
+          ClassLoader entityLoader = entityClass.getClassLoader();
+          Class.forName(entityClass.getName(), false, entityLoader);
+        } catch (Throwable t) {
+          logger.log(Level.SEVERE, "Hibernate entity not loadable: " + entityClass.getName(), t);
+          throw new IllegalStateException("Hibernate entity not loadable: " + entityClass.getName(), t);
+        }
+
+        metadataSources.addAnnotatedClass(entityClass);
+      }
 
       return metadataSources
           .buildMetadata()
@@ -385,6 +407,8 @@ public final class DefaultDatabaseService implements DatabaseService {
         exception.addSuppressed(destroyException);
       }
       throw exception;
+    } finally {
+      Thread.currentThread().setContextClassLoader(contextClassLoader);
     }
   }
 

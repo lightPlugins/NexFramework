@@ -64,7 +64,7 @@ database:
 hibernate:
   hbm2ddl:
     # "validate" (recommended for production), "update" (development), "create", "create-drop"
-    auto: "validate"
+    auto: "update"
 
   # Extra Hibernate properties (string -> string).
   # Example:

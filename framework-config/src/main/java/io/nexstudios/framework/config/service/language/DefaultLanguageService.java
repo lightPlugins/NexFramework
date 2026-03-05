@@ -119,6 +119,12 @@ public final class DefaultLanguageService implements LanguageService {
   }
 
   @Override
+  public void clearUserLocale(UUID userIdentifier) {
+    Objects.requireNonNull(userIdentifier, "userIdentifier");
+    userLocalesByIdentifier.remove(userIdentifier);
+  }
+
+  @Override
   public Locale getUserLocale(UUID userIdentifier) {
     Objects.requireNonNull(userIdentifier, "userIdentifier");
     return userLocalesByIdentifier.getOrDefault(userIdentifier, defaultLocale);

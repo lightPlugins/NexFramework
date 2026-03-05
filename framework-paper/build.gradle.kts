@@ -8,6 +8,8 @@ dependencies {
     implementation(project(":framework-config"))
     implementation(project(":framework-data"))
 
+    compileOnly("jakarta.persistence:jakarta.persistence-api:3.1.0")
+
     paperweight.paperDevBundle(providers.gradleProperty("paperVersion").get())
 }
 

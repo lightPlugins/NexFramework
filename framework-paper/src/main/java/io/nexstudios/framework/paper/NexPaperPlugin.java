@@ -6,24 +6,33 @@ import io.nexstudios.framework.config.service.multireader.DefaultMultiFileReader
 import io.nexstudios.framework.config.service.singlereader.FileReaderService;
 import io.nexstudios.framework.config.service.multireader.MultiFileReaderService;
 import io.nexstudios.framework.core.NexFramework;
+import io.nexstudios.framework.core.service.component.ComponentService;
+import io.nexstudios.framework.core.service.component.DefaultComponentService;
 import io.nexstudios.framework.core.service.database.DatabaseAsyncService;
 import io.nexstudios.framework.core.service.database.DatabaseService;
+import io.nexstudios.framework.core.service.database.HibernateEntityRegistryService;
 import io.nexstudios.framework.core.service.folder.DataFolderService;
 import io.nexstudios.framework.core.service.folder.DefaultDataFolderService;
 import io.nexstudios.framework.core.service.language.LanguageService;
+import io.nexstudios.framework.core.service.language.UserLocaleStore;
 import io.nexstudios.framework.core.service.resource.DefaultResourceService;
 import io.nexstudios.framework.core.service.resource.ResourceService;
+import io.nexstudios.framework.data.hibernate.DefaultHibernateEntityRegistry;
 import io.nexstudios.framework.data.service.DefaultDatabaseAsyncService;
 import io.nexstudios.framework.data.service.DefaultDatabaseService;
+import io.nexstudios.framework.data.service.language.HibernateUserLocaleStore;
+import io.nexstudios.framework.data.service.language.entity.PlayerLocaleEntity;
 import io.nexstudios.framework.paper.services.ServiceListener;
 import io.nexstudios.framework.paper.services.commands.CommandService;
 import io.nexstudios.framework.paper.services.commands.DefaultCommandService;
+import io.nexstudios.framework.paper.services.locale.events.PaperPlayerLocaleListener;
 import io.nexstudios.framework.paper.services.plugin.DefaultPaperPluginService;
 import io.nexstudios.framework.paper.services.plugin.PaperPluginService;
 import io.nexstudios.serviceregistry.di.Service;
 import io.nexstudios.serviceregistry.di.ServiceAccessor;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.event.Listener;
+import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
@@ -90,8 +99,12 @@ public abstract class NexPaperPlugin extends JavaPlugin {
     services.register(FileReaderService.class, DefaultFileReaderService.class);
     services.register(MultiFileReaderService.class, DefaultMultiFileReaderService.class);
     services.register(LanguageService.class, DefaultLanguageService.class);
+    services.register(ComponentService.class, DefaultComponentService.class);
+    services.register(HibernateEntityRegistryService.class, DefaultHibernateEntityRegistry.class);
+    services.getService(HibernateEntityRegistryService.class).register(PlayerLocaleEntity.class);
     services.register(DatabaseService.class, DefaultDatabaseService.class);
     services.register(DatabaseAsyncService.class, DefaultDatabaseAsyncService.class);
+    services.register(UserLocaleStore.class, HibernateUserLocaleStore.class);
   }
 
   protected void configureServices(ServiceAccessor services) { }
@@ -193,6 +206,8 @@ public abstract class NexPaperPlugin extends JavaPlugin {
   private void startInternal() {
     var pm = getServer().getPluginManager();
 
+    registerInternalListener(pm);
+
     for (var type : listeners()) {
       Listener listener = services().create(type);
       pm.registerEvents(listener, this);
@@ -229,5 +244,10 @@ public abstract class NexPaperPlugin extends JavaPlugin {
     databaseAsyncService.start();
 
     start();
+  }
+
+  private void registerInternalListener(PluginManager pluginManager) {
+    Listener internalLocaleListener = services().create(PaperPlayerLocaleListener.class);
+    pluginManager.registerEvents(internalLocaleListener, this);
   }
 }

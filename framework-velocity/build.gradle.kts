@@ -7,6 +7,8 @@ dependencies {
     implementation(project(":framework-config"))
     implementation(project(":framework-data"))
 
+    compileOnly("jakarta.persistence:jakarta.persistence-api:3.1.0")
+
     compileOnly("com.velocitypowered:velocity-api:${providers.gradleProperty("velocityVersion").get()}")
     annotationProcessor("com.velocitypowered:velocity-api:${providers.gradleProperty("velocityVersion").get()}")
 }
