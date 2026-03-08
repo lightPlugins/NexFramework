@@ -12,8 +12,8 @@ public final class MythicMobsServices {
 
   public static void register(ServiceAccessor services) {
     // Fail-fast: if you call register(), MythicMobs must be enabled.
-    ThirdPartyPlugins.requireEnabled(PaperMythicMobsService.PLUGIN_NAME);
-
-    services.register(MythicMobsService.class, PaperMythicMobsService.class);
+    ThirdPartyPlugins.requireEnabled(DefaultMythicMobsService.PLUGIN_NAME);
+    // MythicMobs API / Service
+    services.register(MythicMobsService.class, DefaultMythicMobsService.class);
   }
 }

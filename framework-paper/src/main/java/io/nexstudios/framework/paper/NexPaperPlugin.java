@@ -51,6 +51,10 @@ import io.nexstudios.framework.paper.services.commands.DefaultCommandService;
 import io.nexstudios.framework.paper.services.locale.events.PaperPlayerLocaleListener;
 import io.nexstudios.framework.paper.services.plugin.DefaultPaperPluginService;
 import io.nexstudios.framework.paper.services.plugin.PaperPluginService;
+import io.nexstudios.framework.paper.services.thirdparty.DefaultHookService;
+import io.nexstudios.framework.paper.services.thirdparty.HookService;
+import io.nexstudios.framework.paper.services.thirdparty.mythicmobs.MythicMobsService;
+import io.nexstudios.framework.paper.services.thirdparty.mythicmobs.MythicMobsServices;
 import io.nexstudios.serviceregistry.di.Service;
 import io.nexstudios.serviceregistry.di.ServiceAccessor;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
@@ -203,6 +207,7 @@ public abstract class NexPaperPlugin extends JavaPlugin {
     services.register(DatabaseService.class, DefaultDatabaseService.class);
     services.register(DatabaseAsyncService.class, DefaultDatabaseAsyncService.class);
     services.register(UserLocaleStore.class, HibernateUserLocaleStore.class);
+    services.register(HookService.class, DefaultHookService.class);
   }
 
   /**
@@ -502,6 +507,9 @@ public abstract class NexPaperPlugin extends JavaPlugin {
 
     pendingCommandHandlers.clear();
 
+    // try registering third party services
+    registerHookServices();
+
     DatabaseService databaseService = services().getService(DatabaseService.class);
     databaseService.start();
 
@@ -509,6 +517,13 @@ public abstract class NexPaperPlugin extends JavaPlugin {
     databaseAsyncService.start();
 
     start();
+  }
+
+  private void registerHookServices() {
+    HookService hooks = services().getService(HookService.class);
+    if (!hooks.isServiceAvailable(MythicMobsService.class) && hooks.isPluginEnabled("MythicMobs")) {
+      MythicMobsServices.register(services());
+    }
   }
 
   /**
