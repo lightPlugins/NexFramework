@@ -21,6 +21,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Dependencies({
     PaperPluginService.class,
@@ -63,16 +64,23 @@ public final class PaperPlayerLocaleListener implements ServiceListener {
       DatabaseAsyncService async = asyncOpt.get();
 
       async.executeAsyncInTransaction(em -> {
-        return store.findOrCreate(em, uuid, defaultLocale);
-      }).thenAccept(loadedLocale -> Bukkit.getScheduler().runTask(
-          paperPluginService.plugin(),
-          () -> languageService.setUserLocale(uuid, loadedLocale)
-      ));
+            return store.findOrCreate(em, uuid, defaultLocale);
+          })
+          .orTimeout(3, TimeUnit.SECONDS) // wait 2 seconds for DB response
+          .exceptionally(ignored -> defaultLocale) // fallback language key
+          .thenAccept(loadedLocale -> Bukkit.getScheduler().runTask(
+              paperPluginService.plugin(),
+              () -> {
+                if (Bukkit.getPlayer(uuid) != null) {
+                  languageService.setUserLocale(uuid, loadedLocale);
+                }
+              }
+          ));
 
       return;
     }
 
-    // Kein DB-Service aktiv -> PDC-Fallback
+    // read local in the player data container
     Locale fromPdc = readLocaleFromPdc(player).orElse(defaultLocale);
     languageService.setUserLocale(uuid, fromPdc);
   }
