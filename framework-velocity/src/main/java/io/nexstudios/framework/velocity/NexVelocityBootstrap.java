@@ -58,11 +58,15 @@ public abstract class NexVelocityBootstrap {
      */
     @Override
     protected void start() {
-      DatabaseService databaseService = NexVelocityBootstrap.this.services().getService(DatabaseService.class);
-      databaseService.start();
+      try {
+        DatabaseService databaseService = NexVelocityBootstrap.this.services().getService(DatabaseService.class);
+        databaseService.start();
 
-      DatabaseAsyncService databaseAsyncService = NexVelocityBootstrap.this.services().getService(DatabaseAsyncService.class);
-      databaseAsyncService.start();
+        DatabaseAsyncService databaseAsyncService = NexVelocityBootstrap.this.services().getService(DatabaseAsyncService.class);
+        databaseAsyncService.start();
+      } catch (RuntimeException ignored) {
+        // DB optional
+      }
 
       NexVelocityBootstrap.this.start();
     }
@@ -76,17 +80,20 @@ public abstract class NexVelocityBootstrap {
     @Override
     protected void stop() {
       try {
-        DatabaseAsyncService databaseAsyncService = NexVelocityBootstrap.this.services().getService(DatabaseAsyncService.class);
-        databaseAsyncService.shutdown();
+        try {
+          DatabaseAsyncService databaseAsyncService = NexVelocityBootstrap.this.services().getService(DatabaseAsyncService.class);
+          databaseAsyncService.shutdown();
+        } catch (RuntimeException ignored) {
+          // DB optional
+        }
 
-        // Plugin stop hook runs while DB is still available (important for final saves)
         NexVelocityBootstrap.this.stop();
       } finally {
         try {
           DatabaseService databaseService = NexVelocityBootstrap.this.services().getService(DatabaseService.class);
           databaseService.shutdown();
-        } catch (Exception exception) {
-          exception.printStackTrace();
+        } catch (RuntimeException ignored) {
+          // DB optional
         }
       }
     }

@@ -138,8 +138,12 @@ public abstract class NexPaperPlugin extends JavaPlugin {
     @Override
     protected void stop() {
       try {
-        DatabaseAsyncService databaseAsyncService = NexPaperPlugin.this.services().getService(DatabaseAsyncService.class);
-        databaseAsyncService.shutdown();
+        try {
+          DatabaseAsyncService databaseAsyncService = NexPaperPlugin.this.services().getService(DatabaseAsyncService.class);
+          databaseAsyncService.shutdown();
+        } catch (RuntimeException ignored) {
+          // DB optional
+        }
 
         // Plugin stop hook runs while DB is still available (important for final saves)
         NexPaperPlugin.this.stop();
@@ -147,7 +151,9 @@ public abstract class NexPaperPlugin extends JavaPlugin {
         try {
           DatabaseService databaseService = NexPaperPlugin.this.services().getService(DatabaseService.class);
           databaseService.shutdown();
-        } catch (Exception ignored) { }
+        } catch (RuntimeException ignored) {
+          // DB optional
+        }
       }
     }
   };
@@ -470,11 +476,16 @@ public abstract class NexPaperPlugin extends JavaPlugin {
     // try registering third party services
     registerHookServices();
 
-    DatabaseService databaseService = services().getService(DatabaseService.class);
-    databaseService.start();
+    // DB optional: nur starten, wenn registriert
+    try {
+      DatabaseService databaseService = services().getService(DatabaseService.class);
+      databaseService.start();
 
-    DatabaseAsyncService databaseAsyncService = services().getService(DatabaseAsyncService.class);
-    databaseAsyncService.start();
+      DatabaseAsyncService databaseAsyncService = services().getService(DatabaseAsyncService.class);
+      databaseAsyncService.start();
+    } catch (RuntimeException ignored) {
+      // DB optional
+    }
 
     start();
   }
