@@ -4,8 +4,11 @@ import io.nexstudios.framework.config.FileConfiguration;
 import io.nexstudios.framework.config.YamlFileConfiguration;
 import io.nexstudios.framework.config.service.singlereader.FileReaderService;
 import io.nexstudios.framework.core.service.database.DatabaseService;
+import io.nexstudios.framework.core.service.database.HibernateEntityRegistryService;
 import io.nexstudios.framework.core.service.folder.DataFolderService;
 import io.nexstudios.framework.core.service.folder.DefaultDataFolderService;
+import io.nexstudios.framework.data.hibernate.DefaultHibernateEntityRegistry;
+import io.nexstudios.framework.data.service.language.entity.PlayerLocaleEntity;
 import io.nexstudios.serviceregistry.DefaultServiceRegistry;
 import io.nexstudios.serviceregistry.di.ServiceAccessor;
 import io.nexstudios.serviceregistry.di.ServiceOwner;
@@ -96,6 +99,11 @@ final class DefaultDatabaseServiceSqliteIT {
     dfs.bind(dataDir);
 
     services.register(FileReaderService.class, TestFileReaderService.class);
+
+    services.register(HibernateEntityRegistryService.class, DefaultHibernateEntityRegistry.class);
+    HibernateEntityRegistryService reg = services.getService(HibernateEntityRegistryService.class);
+    reg.register(PlayerLocaleEntity.class);
+
     services.register(DatabaseService.class, DefaultDatabaseService.class);
 
     return services;

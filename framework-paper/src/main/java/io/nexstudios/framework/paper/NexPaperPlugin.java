@@ -22,36 +22,15 @@
 
 package io.nexstudios.framework.paper;
 
-import io.nexstudios.framework.config.service.language.DefaultLanguageService;
-import io.nexstudios.framework.config.service.singlereader.DefaultFileReaderService;
-import io.nexstudios.framework.config.service.multireader.DefaultMultiFileReaderService;
-import io.nexstudios.framework.config.service.singlereader.FileReaderService;
-import io.nexstudios.framework.config.service.multireader.MultiFileReaderService;
 import io.nexstudios.framework.core.NexFramework;
 import io.nexstudios.framework.core.key.NexKey;
-import io.nexstudios.framework.core.service.component.ComponentService;
-import io.nexstudios.framework.core.service.component.DefaultComponentService;
 import io.nexstudios.framework.core.service.database.DatabaseAsyncService;
 import io.nexstudios.framework.core.service.database.DatabaseService;
-import io.nexstudios.framework.core.service.database.HibernateEntityRegistryService;
-import io.nexstudios.framework.core.service.folder.DataFolderService;
-import io.nexstudios.framework.core.service.folder.DefaultDataFolderService;
-import io.nexstudios.framework.core.service.language.LanguageService;
-import io.nexstudios.framework.core.service.language.UserLocaleStore;
-import io.nexstudios.framework.core.service.resource.DefaultResourceService;
-import io.nexstudios.framework.core.service.resource.ResourceService;
-import io.nexstudios.framework.data.hibernate.DefaultHibernateEntityRegistry;
-import io.nexstudios.framework.data.service.DefaultDatabaseAsyncService;
-import io.nexstudios.framework.data.service.DefaultDatabaseService;
-import io.nexstudios.framework.data.service.language.HibernateUserLocaleStore;
-import io.nexstudios.framework.data.service.language.entity.PlayerLocaleEntity;
+import io.nexstudios.framework.paper.di.PaperInternalServicesModule;
+import io.nexstudios.framework.paper.di.PaperPlatformBindingsModule;
 import io.nexstudios.framework.paper.services.ServiceListener;
 import io.nexstudios.framework.paper.services.commands.CommandService;
-import io.nexstudios.framework.paper.services.commands.DefaultCommandService;
 import io.nexstudios.framework.paper.services.locale.events.PaperPlayerLocaleListener;
-import io.nexstudios.framework.paper.services.plugin.DefaultPaperPluginService;
-import io.nexstudios.framework.paper.services.plugin.PaperPluginService;
-import io.nexstudios.framework.paper.services.thirdparty.DefaultHookService;
 import io.nexstudios.framework.paper.services.thirdparty.HookService;
 import io.nexstudios.framework.paper.services.thirdparty.mythicmobs.MythicMobsService;
 import io.nexstudios.framework.paper.services.thirdparty.mythicmobs.MythicMobsServices;
@@ -115,21 +94,12 @@ public abstract class NexPaperPlugin extends JavaPlugin {
     @Override
     protected void configureServices(ServiceAccessor services) {
       // Bind-first: register + bind platform-bound services before any dependent services are registered/instantiated
-      services.register(PaperPluginService.class, DefaultPaperPluginService.class);
-      services.register(DataFolderService.class, DefaultDataFolderService.class);
-      services.register(ResourceService.class, DefaultResourceService.class);
-
-      DefaultPaperPluginService pluginService = (DefaultPaperPluginService) services.getService(PaperPluginService.class);
-      pluginService.bind(NexPaperPlugin.this);
-
-      DataFolderService dataFolderService = services.getService(DataFolderService.class);
-      dataFolderService.bind(NexPaperPlugin.this.getDataFolder().toPath());
-
-      ResourceService resourceService = services.getService(ResourceService.class);
-      resourceService.bind(NexPaperPlugin.this.getClassLoader());
+      services.install(new PaperPlatformBindingsModule(NexPaperPlugin.this));
 
       // Now it is safe to register services that depend on ResourceService/DataFolderService
-      NexPaperPlugin.this.registerPaperInternalServices(services);
+      services.install(new PaperInternalServicesModule());
+
+      // plugin hook for additional registrations
       NexPaperPlugin.this.configureServices(services);
     }
 
@@ -197,17 +167,7 @@ public abstract class NexPaperPlugin extends JavaPlugin {
    *                 service registry, used to bind and retrieve service implementations
    */
   protected void registerPaperInternalServices(ServiceAccessor services) {
-    services.register(CommandService.class, DefaultCommandService.class);
-    services.register(FileReaderService.class, DefaultFileReaderService.class);
-    services.register(MultiFileReaderService.class, DefaultMultiFileReaderService.class);
-    services.register(LanguageService.class, DefaultLanguageService.class);
-    services.register(ComponentService.class, DefaultComponentService.class);
-    services.register(HibernateEntityRegistryService.class, DefaultHibernateEntityRegistry.class);
-    services.getService(HibernateEntityRegistryService.class).register(PlayerLocaleEntity.class);
-    services.register(DatabaseService.class, DefaultDatabaseService.class);
-    services.register(DatabaseAsyncService.class, DefaultDatabaseAsyncService.class);
-    services.register(UserLocaleStore.class, HibernateUserLocaleStore.class);
-    services.register(HookService.class, DefaultHookService.class);
+    services.install(new PaperInternalServicesModule());
   }
 
   /**

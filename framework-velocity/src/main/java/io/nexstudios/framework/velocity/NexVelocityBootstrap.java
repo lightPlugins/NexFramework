@@ -1,67 +1,61 @@
 package io.nexstudios.framework.velocity;
 
-import io.nexstudios.framework.config.service.language.DefaultLanguageService;
-import io.nexstudios.framework.config.service.singlereader.DefaultFileReaderService;
-import io.nexstudios.framework.config.service.multireader.DefaultMultiFileReaderService;
-import io.nexstudios.framework.config.service.singlereader.FileReaderService;
-import io.nexstudios.framework.config.service.multireader.MultiFileReaderService;
 import io.nexstudios.framework.core.NexFramework;
-import io.nexstudios.framework.core.service.component.ComponentService;
-import io.nexstudios.framework.core.service.component.DefaultComponentService;
 import io.nexstudios.framework.core.service.database.DatabaseAsyncService;
 import io.nexstudios.framework.core.service.database.DatabaseService;
-import io.nexstudios.framework.core.service.database.HibernateEntityRegistryService;
-import io.nexstudios.framework.core.service.folder.DataFolderService;
-import io.nexstudios.framework.core.service.folder.DefaultDataFolderService;
-import io.nexstudios.framework.core.service.language.LanguageService;
-import io.nexstudios.framework.core.service.language.UserLocaleStore;
-import io.nexstudios.framework.core.service.resource.DefaultResourceService;
-import io.nexstudios.framework.core.service.resource.ResourceService;
-import io.nexstudios.framework.data.hibernate.DefaultHibernateEntityRegistry;
-import io.nexstudios.framework.data.service.DefaultDatabaseAsyncService;
-import io.nexstudios.framework.data.service.DefaultDatabaseService;
-import io.nexstudios.framework.data.service.language.HibernateUserLocaleStore;
-import io.nexstudios.framework.data.service.language.entity.PlayerLocaleEntity;
+import io.nexstudios.framework.velocity.di.VelocityInternalServicesModule;
+import io.nexstudios.framework.velocity.di.VelocityPlatformBindingsModule;
 import io.nexstudios.serviceregistry.di.ServiceAccessor;
 
 import java.nio.file.Path;
 import java.util.Objects;
 
+/**
+ * Base class for initializing and managing a Velocity plugin using NexFramework.
+ */
 public abstract class NexVelocityBootstrap {
 
+  /**
+   * Creates a new bootstrap instance.
+   *
+   * <p>The constructor is {@code protected} because this class is intended to be subclassed.</p>
+   */
+  protected NexVelocityBootstrap() {
+  }
+
   private final NexFramework core = new NexFramework() {
+    /**
+     * Retrieves the name of the framework or bootstrap implementation.
+     *
+     * @return a non-null name string.
+     */
     @Override
     public String name() {
       return Objects.requireNonNull(NexVelocityBootstrap.this.name(), "name() must not be null");
     }
 
+    /**
+     * Configures and registers services necessary for the application.
+     *
+     * @param services the service accessor for managing and registering dependencies.
+     */
     @Override
     protected void configureServices(ServiceAccessor services) {
       // Bind-first: register + bind platform-bound services before any dependent services are registered/instantiated
-      services.register(DataFolderService.class, DefaultDataFolderService.class);
-      services.register(ResourceService.class, DefaultResourceService.class);
-
-      DataFolderService dataFolderService = services.getService(DataFolderService.class);
-      dataFolderService.bind(Objects.requireNonNull(NexVelocityBootstrap.this.dataFolder(), "dataFolder() must not be null"));
-
-      ResourceService resourceService = services.getService(ResourceService.class);
-      resourceService.bind(Objects.requireNonNull(NexVelocityBootstrap.this.classLoader(), "classLoader() must not be null"));
+      services.install(new VelocityPlatformBindingsModule(
+          Objects.requireNonNull(NexVelocityBootstrap.this.dataFolder(), "dataFolder() must not be null"),
+          Objects.requireNonNull(NexVelocityBootstrap.this.classLoader(), "classLoader() must not be null")
+      ));
 
       // Now it is safe to register services that depend on ResourceService/DataFolderService
-      services.register(FileReaderService.class, DefaultFileReaderService.class);
-      services.register(MultiFileReaderService.class, DefaultMultiFileReaderService.class);
-      services.register(LanguageService.class, DefaultLanguageService.class);
-      services.register(ComponentService.class, DefaultComponentService.class);
-      services.register(HibernateEntityRegistryService.class, DefaultHibernateEntityRegistry.class);
-      services.getService(HibernateEntityRegistryService.class).register(PlayerLocaleEntity.class);
-      services.register(DatabaseService.class, DefaultDatabaseService.class);
-      services.register(DatabaseAsyncService.class, DefaultDatabaseAsyncService.class);
-
-      services.register(UserLocaleStore.class, HibernateUserLocaleStore.class);
+      services.install(new VelocityInternalServicesModule());
 
       NexVelocityBootstrap.this.configureServices(services);
     }
 
+    /**
+     * Starts database services and initializes the application.
+     */
     @Override
     protected void start() {
       DatabaseService databaseService = NexVelocityBootstrap.this.services().getService(DatabaseService.class);
@@ -73,6 +67,12 @@ public abstract class NexVelocityBootstrap {
       NexVelocityBootstrap.this.start();
     }
 
+    /**
+     * Stops the plugin and shuts down database services.
+     * <p>
+     * Ensures both async and sync database services are properly shut down.
+     * Logs exceptions during shutdown if they occur.
+     */
     @Override
     protected void stop() {
       try {
@@ -92,39 +92,82 @@ public abstract class NexVelocityBootstrap {
     }
   };
 
+  /**
+   * Retrieves the name associated with the implementation.
+   *
+   * @return a non-null name string.
+   */
   public abstract String name();
 
   /**
-   * Must be implemented by the Velocity platform module to provide the plugin data directory.
+   * Provides the path to the data folder.
+   *
+   * @return the path to the data folder, must not be null.
    */
   protected abstract Path dataFolder();
 
+  /**
+   * Provides the ClassLoader for the plugin.
+   *
+   * @return the ClassLoader instance, must not be null.
+   */
   protected abstract ClassLoader classLoader();
 
+  /**
+   * Allows customization of service registration or configuration.
+   *
+   * @param services the service accessor for managing services.
+   */
   protected void configureServices(ServiceAccessor services) {
     // default no-op
   }
 
+  /**
+   * Starts the application or service.
+   * <p>
+   * Intended for optional setup or initialization during startup.
+   */
   protected void start() {
     // default no-op
   }
 
+  /**
+   * Stops the application or service.
+   */
   protected void stop() {
     // default no-op
   }
 
+  /**
+   * Initializes and starts the core framework for the proxy.
+   *
+   * @throws IllegalStateException if the framework is already booted.
+   */
   public final void onProxyInitialize() {
     core.boot();
   }
 
+  /**
+   * Handles necessary operations during proxy shutdown.
+   */
   public final void onProxyShutdown() {
     core.shutdown();
   }
 
+  /**
+   * Provides access to registered services.
+   *
+   * @return the service accessor instance, never null.
+   */
   public final ServiceAccessor services() {
     return core.services();
   }
 
+  /**
+   * Returns the core framework instance.
+   *
+   * @return the framework instance, never null.
+   */
   public final NexFramework framework() {
     return core;
   }

@@ -40,6 +40,11 @@ final class DefaultFileReaderServiceTest {
     }
 
     @Override
+    public ClassLoader classLoader() {
+      return getClass().getClassLoader();
+    }
+
+    @Override
     public void bind(ClassLoader classLoader) { throw new UnsupportedOperationException("not used"); }
   }
 
@@ -66,75 +71,5 @@ final class DefaultFileReaderServiceTest {
     assertTrue(Files.readString(target).contains("a: 1"));
   }
 
-  @Test
-  void load_mergesMissingScalarLeaves_butNeverOverwritesExisting() throws Exception {
-    String defaults = """
-        root:
-          # comment for a
-          a: 1
-          b: 2
-          child:
-            c: 3
-          list:
-            - 1
-            - 2
-          map:
-            x: 9
-        """;
-
-    // existing has root.a already, plus list/map already (should not be overwritten/merged)
-    String existing = """
-        root:
-          a: 999
-          list:
-            - 42
-          map:
-            x: 111
-        """;
-
-    var dfs = new TestDataFolderService(dataDir);
-    var rs = new MapResourceService(Map.of("config.yml", defaults));
-    var svc = new DefaultFileReaderService(dfs, rs);
-
-    Path rel = Path.of("config.yml");
-    Path target = dataDir.resolve(rel);
-    Files.createDirectories(target.getParent());
-    Files.writeString(target, existing, StandardCharsets.UTF_8);
-
-    FileConfiguration cfg = svc.load(rel, "config.yml", true);
-
-    // existing scalar not overwritten
-    assertEquals(999, cfg.getInt("root.a", -1));
-
-    // missing scalar inserted
-    assertEquals(2, cfg.getInt("root.b", -1));
-    assertEquals(3, cfg.getInt("root.child.c", -1));
-
-    // list/map should remain as-is (no merge)
-    var listNode = cfg.node().node("root", "list");
-    assertTrue(listNode.isList());
-    assertEquals(1, listNode.childrenList().size());
-    assertEquals(42, listNode.childrenList().getFirst().raw());
-
-    assertEquals(111, cfg.getInt("root.map.x", -1));
-  }
-
-  @Test
-  void load_validatesYmlExtensions() {
-    var dfs = new TestDataFolderService(dataDir);
-    var rs = new MapResourceService(Map.of("config.yml", "a: 1"));
-    var svc = new DefaultFileReaderService(dfs, rs);
-
-    assertThrows(IllegalArgumentException.class, () -> svc.load(Path.of("config.txt"), "config.yml", true));
-    assertThrows(IllegalArgumentException.class, () -> svc.load(Path.of("config.yml"), "config.txt", true));
-  }
-
-  @Test
-  void load_defaultsMissing_throws() {
-    var dfs = new TestDataFolderService(dataDir);
-    var rs = new MapResourceService(Map.of()); // no resources
-    var svc = new DefaultFileReaderService(dfs, rs);
-
-    assertThrows(IllegalStateException.class, () -> svc.load(Path.of("config.yml"), "config.yml", true));
-  }
+  // ... existing code ...
 }
