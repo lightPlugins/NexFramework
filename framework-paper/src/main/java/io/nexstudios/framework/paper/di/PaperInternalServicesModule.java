@@ -1,9 +1,5 @@
 package io.nexstudios.framework.paper.di;
 
-import io.nexstudios.framework.config.service.multireader.DefaultMultiFileReaderService;
-import io.nexstudios.framework.config.service.multireader.MultiFileReaderService;
-import io.nexstudios.framework.config.service.singlereader.DefaultFileReaderService;
-import io.nexstudios.framework.config.service.singlereader.FileReaderService;
 import io.nexstudios.framework.paper.services.commands.CommandService;
 import io.nexstudios.framework.paper.services.commands.DefaultCommandService;
 import io.nexstudios.framework.paper.services.thirdparty.DefaultHookService;
@@ -25,8 +21,6 @@ public final class PaperInternalServicesModule implements ServiceModule {
     Objects.requireNonNull(services, "services");
 
     services.register(CommandService.class, DefaultCommandService.class);
-    services.register(FileReaderService.class, DefaultFileReaderService.class);
-    services.register(MultiFileReaderService.class, DefaultMultiFileReaderService.class);
     services.register(HookService.class, DefaultHookService.class);
   }
 }
