@@ -24,13 +24,10 @@ package io.nexstudios.framework.paper;
 
 import io.nexstudios.framework.core.NexFramework;
 import io.nexstudios.framework.core.key.NexKey;
-import io.nexstudios.framework.core.service.database.DatabaseAsyncService;
-import io.nexstudios.framework.core.service.database.DatabaseService;
 import io.nexstudios.framework.paper.di.PaperInternalServicesModule;
 import io.nexstudios.framework.paper.di.PaperPlatformBindingsModule;
 import io.nexstudios.framework.paper.services.ServiceListener;
 import io.nexstudios.framework.paper.services.commands.CommandService;
-import io.nexstudios.framework.paper.services.locale.events.PaperPlayerLocaleListener;
 import io.nexstudios.framework.paper.services.thirdparty.HookService;
 import io.nexstudios.framework.paper.services.thirdparty.mythicmobs.MythicMobsService;
 import io.nexstudios.framework.paper.services.thirdparty.mythicmobs.MythicMobsServices;
@@ -38,7 +35,6 @@ import io.nexstudios.serviceregistry.di.Service;
 import io.nexstudios.serviceregistry.di.ServiceAccessor;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.event.Listener;
-import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
@@ -137,24 +133,7 @@ public abstract class NexPaperPlugin extends JavaPlugin {
      */
     @Override
     protected void stop() {
-      try {
-        try {
-          DatabaseAsyncService databaseAsyncService = NexPaperPlugin.this.services().getService(DatabaseAsyncService.class);
-          databaseAsyncService.shutdown();
-        } catch (RuntimeException ignored) {
-          // DB optional
-        }
-
-        // Plugin stop hook runs while DB is still available (important for final saves)
-        NexPaperPlugin.this.stop();
-      } finally {
-        try {
-          DatabaseService databaseService = NexPaperPlugin.this.services().getService(DatabaseService.class);
-          databaseService.shutdown();
-        } catch (RuntimeException ignored) {
-          // DB optional
-        }
-      }
+      NexPaperPlugin.this.stop();
     }
   };
 
@@ -431,8 +410,6 @@ public abstract class NexPaperPlugin extends JavaPlugin {
    * - Registering internal listeners and external listeners specified by the plugin.
    * - Managing pending listener types and instances.
    * - Registering command handlers via the {@link CommandService}.
-   * - Initializing the database services such as {@link DatabaseService}
-   *   and {@link DatabaseAsyncService}.
    *
    * <p> After performing all initializations, the plugin's custom startup logic is invoked
    * by calling the {@code start()} method.
@@ -441,8 +418,6 @@ public abstract class NexPaperPlugin extends JavaPlugin {
    */
   private void startInternal() {
     var pm = getServer().getPluginManager();
-
-    registerInternalListener(pm);
 
     for (var type : listeners()) {
       Listener listener = services().create(type);
@@ -476,17 +451,6 @@ public abstract class NexPaperPlugin extends JavaPlugin {
     // try registering third party services
     registerHookServices();
 
-    // DB optional: nur starten, wenn registriert
-    try {
-      DatabaseService databaseService = services().getService(DatabaseService.class);
-      databaseService.start();
-
-      DatabaseAsyncService databaseAsyncService = services().getService(DatabaseAsyncService.class);
-      databaseAsyncService.start();
-    } catch (RuntimeException ignored) {
-      // DB optional
-    }
-
     start();
   }
 
@@ -495,22 +459,5 @@ public abstract class NexPaperPlugin extends JavaPlugin {
     if (!hooks.isServiceAvailable(MythicMobsService.class) && hooks.isPluginEnabled("MythicMobs")) {
       MythicMobsServices.register(services());
     }
-  }
-
-  /**
-   * Registers an internal listener that handles player locale management events
-   * within the plugin. The listener is created using the plugin's service accessor
-   * and registered with the provided plugin manager.
-   *
-   * <p>This method is intended for internal use during the initialization
-   * process of the plugin, ensuring that locale-related events such as player
-   * join and quit are properly handled by the {@link PaperPlayerLocaleListener}.
-   *
-   * @param pluginManager the {@code PluginManager} instance used to register the listener,
-   *                      must not be {@code null}
-   */
-  private void registerInternalListener(PluginManager pluginManager) {
-    Listener internalLocaleListener = services().create(PaperPlayerLocaleListener.class);
-    pluginManager.registerEvents(internalLocaleListener, this);
   }
 }

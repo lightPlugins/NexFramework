@@ -11,9 +11,6 @@ repositories {
 dependencies {
     implementation(project(":framework-core"))
     implementation(project(":framework-config"))
-    implementation(project(":framework-data"))
-
-    compileOnly("jakarta.persistence:jakarta.persistence-api:3.1.0")
 
     // MythicMobs API
     compileOnly("io.lumine:Mythic-Dist:5.11.2")

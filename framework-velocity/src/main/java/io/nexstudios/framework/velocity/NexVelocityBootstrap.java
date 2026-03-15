@@ -1,8 +1,6 @@
 package io.nexstudios.framework.velocity;
 
 import io.nexstudios.framework.core.NexFramework;
-import io.nexstudios.framework.core.service.database.DatabaseAsyncService;
-import io.nexstudios.framework.core.service.database.DatabaseService;
 import io.nexstudios.framework.velocity.di.VelocityInternalServicesModule;
 import io.nexstudios.framework.velocity.di.VelocityPlatformBindingsModule;
 import io.nexstudios.serviceregistry.di.ServiceAccessor;
@@ -58,16 +56,6 @@ public abstract class NexVelocityBootstrap {
      */
     @Override
     protected void start() {
-      try {
-        DatabaseService databaseService = NexVelocityBootstrap.this.services().getService(DatabaseService.class);
-        databaseService.start();
-
-        DatabaseAsyncService databaseAsyncService = NexVelocityBootstrap.this.services().getService(DatabaseAsyncService.class);
-        databaseAsyncService.start();
-      } catch (RuntimeException ignored) {
-        // DB optional
-      }
-
       NexVelocityBootstrap.this.start();
     }
 
@@ -79,23 +67,7 @@ public abstract class NexVelocityBootstrap {
      */
     @Override
     protected void stop() {
-      try {
-        try {
-          DatabaseAsyncService databaseAsyncService = NexVelocityBootstrap.this.services().getService(DatabaseAsyncService.class);
-          databaseAsyncService.shutdown();
-        } catch (RuntimeException ignored) {
-          // DB optional
-        }
-
-        NexVelocityBootstrap.this.stop();
-      } finally {
-        try {
-          DatabaseService databaseService = NexVelocityBootstrap.this.services().getService(DatabaseService.class);
-          databaseService.shutdown();
-        } catch (RuntimeException ignored) {
-          // DB optional
-        }
-      }
+      NexVelocityBootstrap.this.stop();
     }
   };
 
