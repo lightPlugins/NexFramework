@@ -13,4 +13,3 @@ include(
     "framework-paper",
     "framework-velocity",
 )
-include("framework-config")
