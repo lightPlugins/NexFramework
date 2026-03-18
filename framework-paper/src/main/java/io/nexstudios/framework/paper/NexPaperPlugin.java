@@ -27,13 +27,10 @@ import io.nexstudios.framework.core.key.NexKey;
 import io.nexstudios.framework.paper.di.PaperInternalServicesModule;
 import io.nexstudios.framework.paper.di.PaperPlatformBindingsModule;
 import io.nexstudios.framework.paper.services.ServiceListener;
-import io.nexstudios.framework.paper.services.commands.CommandService;
 import io.nexstudios.framework.paper.services.thirdparty.HookService;
 import io.nexstudios.framework.paper.services.thirdparty.mythicmobs.MythicMobsService;
 import io.nexstudios.framework.paper.services.thirdparty.mythicmobs.MythicMobsServices;
-import io.nexstudios.serviceregistry.di.Service;
 import io.nexstudios.serviceregistry.di.ServiceAccessor;
-import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -61,11 +58,9 @@ public abstract class NexPaperPlugin extends JavaPlugin {
 
   private final List<Listener> pendingListenerInstances = new CopyOnWriteArrayList<>();
   private final List<Class<? extends ServiceListener>> pendingListenerTypes = new CopyOnWriteArrayList<>();
-  private final List<Class<? extends Service>> pendingCommandHandlers = new CopyOnWriteArrayList<>();
-  private volatile boolean commandsLifecycleHooked = false;
 
   private final NexFramework core = new NexFramework() {
-    
+
     @Override
     public String name() {
       return NexPaperPlugin.this.getPluginMeta().getName();
@@ -280,142 +275,33 @@ public abstract class NexPaperPlugin extends JavaPlugin {
     return List.of();
   }
 
-  /**
-   * Retrieves a list of service class types representing the commands.
-   *
-   * <p>
-   * This method can be overridden to provide specific service classes
-   * that represent the available commands in a subclass.
-   * </p>
-   *
-   * @return a list of service class types. Returns an empty list by default.
-   */
-  protected List<Class<? extends Service>> commands() {
-    return List.of();
-  }
-
-  @SafeVarargs
-  protected final void registerCommands(Class<? extends Service>... handlerTypes) {
-    if (framework().isBooted()) {
-      CommandService commandService = services().getService(CommandService.class);
-      for (var t : handlerTypes) {
-        commandService.register(t);
-      }
-      return;
-    }
-
-    pendingCommandHandlers.addAll(List.of(handlerTypes));
-  }
-
-  /**
-   * Called when the object is being loaded or initialized.
-   * <p>
-   * This method is invoked to perform any necessary actions required
-   * during the loading phase. It ensures the preparation or setup
-   * process by internally delegating the operation to the <code>load()</code> method.
-   * <p>
-   * Override this method with caution to maintain the desired behavior of the load process.
-   */
   @Override
   public final void onLoad() {
     load();
   }
 
-  /**
-   * This method is invoked when the plugin is enabled.
-   * <p>
-   * It ensures that the commands lifecycle is hooked once and
-   * initiates the boot process of the core system.
-   * This method is called as part of the plugin's lifecycle management.
-   */
   @Override
   public final void onEnable() {
-    hookCommandsLifecycleOnce();
     core.boot();
   }
 
-  /**
-   * This method is called when the plugin or application is disabled.
-   * <p>
-   * It ensures that the associated core system is properly shut down by
-   * invoking the {@code shutdown()} method on the {@code core} object.
-   * This guarantees that all resources are released and the system is
-   * in a safe state upon disabling.
-   */
   @Override
   public final void onDisable() {
     core.shutdown();
   }
 
-  /**
-   * Provides access to the core {@link ServiceAccessor} instance associated with the plugin.
-   * This accessor enables retrieval and management of registered services within the plugin
-   * framework, allowing for operations such as service registration, binding, and retrieval.
-   *
-   * @return the core {@code ServiceAccessor} used to manage services in the plugin
-   */
   public final ServiceAccessor services() {
     return core.services();
   }
 
-  /**
-   * Provides access to the core {@link NexFramework} instance associated with the plugin.
-   * This framework manages the lifecycle and service registry of the plugin, enabling
-   * modular and structured management of services and their dependencies.
-   *
-   * @return the core {@code NexFramework} instance used to handle the plugin's framework
-   */
   public final NexFramework framework() {
     return core;
   }
 
-  /**
-   * Creates a new {@code NexKey} instance using this plugin's name as the namespace and the provided key.
-   *
-   * @param key the key to associate with the plugin's namespace, must not be null
-   * @return a new {@code NexKey} instance where the namespace is the name of this plugin
-   *         and the key is the provided value
-   * @throws NullPointerException if {@code key} is null
-   * @throws IllegalArgumentException if the normalized key is empty
-   */
   public final NexKey createKey(String key) {
     return NexKey.ofOwnerName(getPluginMeta().getName(), key);
   }
 
-  private void hookCommandsLifecycleOnce() {
-    if (commandsLifecycleHooked) {
-      return;
-    }
-    synchronized (this) {
-      if (commandsLifecycleHooked) {
-        return;
-      }
-
-      getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
-        var commands = event.registrar();
-        CommandService commandService = services().getService(CommandService.class);
-        commandService.bind(commands);
-      });
-
-      commandsLifecycleHooked = true;
-    }
-  }
-
-  /**
-   * Initializes the internal components and services of the plugin and starts the necessary
-   * lifecycle processes. This method is responsible for registering listeners, commands, and
-   * starting database services, ensuring the readiness of the plugin to handle its designated tasks.
-   *
-   * <p> The initialization process involves:
-   * - Registering internal listeners and external listeners specified by the plugin.
-   * - Managing pending listener types and instances.
-   * - Registering command handlers via the {@link CommandService}.
-   *
-   * <p> After performing all initializations, the plugin's custom startup logic is invoked
-   * by calling the {@code start()} method.
-   *
-   * <p> This method is intended for internal use during the startup lifecycle of the plugin.
-   */
   private void startInternal() {
     var pm = getServer().getPluginManager();
 
@@ -436,17 +322,6 @@ public abstract class NexPaperPlugin extends JavaPlugin {
     }
 
     pendingListenerInstances.clear();
-    CommandService commandService = services().getService(CommandService.class);
-
-    for (var t : commands()) {
-      commandService.register(t);
-    }
-
-    for (var t : pendingCommandHandlers) {
-      commandService.register(t);
-    }
-
-    pendingCommandHandlers.clear();
 
     // try registering third party services
     registerHookServices();

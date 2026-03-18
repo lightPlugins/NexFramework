@@ -5,11 +5,14 @@ plugins {
 
 repositories {
     mavenCentral()
+    mavenLocal()
     maven("https://mvn.lumine.io/repository/maven-public/")
 }
 
 dependencies {
     implementation(project(":framework-core"))
+
+    compileOnly("io.nexstudios.commandservice:bukkit:v1.0.0")
 
     // MythicMobs API
     compileOnly("io.lumine:Mythic-Dist:5.11.2")

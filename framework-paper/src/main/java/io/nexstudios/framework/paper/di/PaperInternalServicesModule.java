@@ -1,7 +1,5 @@
 package io.nexstudios.framework.paper.di;
 
-import io.nexstudios.framework.paper.services.commands.CommandService;
-import io.nexstudios.framework.paper.services.commands.DefaultCommandService;
 import io.nexstudios.framework.paper.services.thirdparty.DefaultHookService;
 import io.nexstudios.framework.paper.services.thirdparty.HookService;
 import io.nexstudios.serviceregistry.di.ServiceAccessor;
@@ -20,7 +18,6 @@ public final class PaperInternalServicesModule implements ServiceModule {
   public void install(ServiceAccessor services) {
     Objects.requireNonNull(services, "services");
 
-    services.register(CommandService.class, DefaultCommandService.class);
     services.register(HookService.class, DefaultHookService.class);
   }
 }
