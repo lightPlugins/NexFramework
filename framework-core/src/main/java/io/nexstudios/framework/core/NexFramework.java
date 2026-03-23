@@ -12,7 +12,13 @@ public abstract class NexFramework implements ServiceOwner {
   private final DefaultServiceRegistry registry;
   private final ServiceAccessor services;
 
-  private boolean booted = false;
+  private enum State {
+    NEW,
+    PRELOADED,
+    BOOTED
+  }
+
+  private State state = State.NEW;
 
   protected NexFramework() {
     this.registry = new DefaultServiceRegistry();
@@ -24,26 +30,47 @@ public abstract class NexFramework implements ServiceOwner {
   protected void start() { }
   protected void stop() { }
 
-  public final synchronized void boot() {
-    if (booted) {
+  /**
+   * Runs service registration + configuration without starting runtime logic.
+   * Intended for early lifecycle stages (e.g. Paper onLoad()).
+   */
+  public final synchronized void preload() {
+    if (state == State.BOOTED) {
       throw new IllegalStateException("NexFramework " + name() + " is already booted!");
     }
+    if (state == State.PRELOADED) {
+      return; // idempotent
+    }
+
     Objects.requireNonNull(name(), "ServiceOwner.name() must not be null!");
 
     registerInternalServices(services);
     configureServices(services);
-    booted = true;
+    state = State.PRELOADED;
+  }
+
+  public final synchronized void boot() {
+    if (state == State.BOOTED) {
+      throw new IllegalStateException("NexFramework " + name() + " is already booted!");
+    }
+
+    // Ensure services are available even if preload() was not called explicitly
+    if (state == State.NEW) {
+      preload();
+    }
+
+    state = State.BOOTED;
     start();
   }
 
   public final synchronized void shutdown() {
-    if (!booted) {
+    if (state != State.BOOTED) {
       return;
     }
     try {
       stop();
     } finally {
-      booted = false;
+      state = State.NEW;
     }
   }
 
@@ -56,6 +83,10 @@ public abstract class NexFramework implements ServiceOwner {
   }
 
   public final boolean isBooted() {
-    return booted;
+    return state == State.BOOTED;
+  }
+
+  public final boolean isPreloaded() {
+    return state == State.PRELOADED;
   }
 }

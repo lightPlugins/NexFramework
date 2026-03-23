@@ -277,6 +277,7 @@ public abstract class NexPaperPlugin extends JavaPlugin {
 
   @Override
   public final void onLoad() {
+    core.preload();
     load();
   }
 
